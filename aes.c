@@ -194,6 +194,106 @@ uint Rcon[]={0x01000000,0x02000000,0x04000000,0x08000000,0x10000000,0x20000000,
              0x40000000,0x80000000,0x1b000000,0x36000000,0x6c000000,0xd8000000,
              0xab000000,0x4d000000,0x9a000000};
 
+int main(int argc, char* argv[]){
+
+	if(argc < 4){
+		printf("128bit AES test functions\n");
+		printf("Usage: aes <arg> <plaintext> <key>\n");
+		printf("Arguments:\n");
+		printf("\t-v\tVerbose, prints every step of the process\n\n");
+		printf("\t-e\tEncrypt, encrypts the plaintext with the key\n\n");
+		printf("\t-d\tDecrypt, decrypts the cyphertext with the key\n\n");
+	}
+	char verbose = 0;
+	char encryption_type = 0;
+
+
+	int i;
+	for(i = 1; i < argc; ++i){
+		printf("%s\n", argv[i]);
+		//printf("", argv[i][]
+		if(argv[i][0] == '-'){
+			switch((int)argv[i][1]){
+				case((int)'v'):
+					verbose = 1;
+					break;
+				case((int)'d'):
+					encryption_type = DECRYPT;
+					break;
+				case((int)'e'):
+					encryption_type = ENCRYPT;
+					break;
+				default:
+					printf("Argument not understood\n");
+					return -1;	
+			}
+		}
+	} 
+
+	if(encryption_type == 0){
+		printf("No aes mode specified!\n");
+		return -1;	
+	}
+
+	int text_desc = 0;
+	int key_desc = 0;
+
+	text_desc = open(argv[argc-2], O_RDONLY);
+	if(text_desc < 0){
+		return text_desc;		
+	}
+
+	key_desc = open(argv[argc-1], O_RDONLY);
+	if(key_desc < 0){
+		return key_desc;
+	}
+
+	char text_buf[BUFFER_SIZE];
+	char key_buf[BUFFER_SIZE];
+
+	int n_read;
+	n_read = read(text_desc, text_buf, BUFFER_SIZE);
+	if(n_read < BUFFER_SIZE){
+		i = 0;
+		for(i = n_read; i < BUFFER_SIZE; ++i){
+			text_buf[i] = '0';
+		}
+	}
+
+	n_read = read(key_desc, key_buf, BUFFER_SIZE);
+	if(n_read < BUFFER_SIZE){
+		i = 0;
+		for(i = n_read; i < BUFFER_SIZE; ++i){
+			key_buf[i] = '0';
+		}
+	}
+	
+	
+	char out_buf[BUFFER_SIZE];
+
+	int functions = encryption_type | (verbose << 2);
+
+	switch(functions){
+		case(ENCRYPT):
+			//encrypt
+			aes_128_enc(text_buf, key_buf, out_buf);
+			break;
+		case(DECRYPT):
+			//decrypt
+			aes_128_dec(text_buf, key_buf, out_buf);
+			break;
+		case(VERBOSE_ENCRYPT):
+			aes_128_enc_verbose(text_buf, key_buf, out_buf);
+			break;
+		case(VERBOSE_DECRYPT):
+			aes_128_dec_verbose(text_buf, key_buf, out_buf);
+			break;
+	}
+
+
+}
+
+
 uint oneD_to_twoD(uchar in[], uchar out[][4], uint Nb){
 	int i;
 	int j;
@@ -461,7 +561,7 @@ uint key_exp_enc(uchar key[][4], uint Nk, uint sched[NUM_ROUNDS + 1][4]){
 
 /*Verbose Schedule contains the round keys*/
 uint key_exp_enc_verbose(uchar key[][4], uint Nk, uint sched[NUM_ROUNDS + 1][4]){
-	uint i;
+	int i;
 	uint k;
 	for(i = 0; i < 1; ++i){
 		for(k = 0; k < 4; ++k){
@@ -471,6 +571,9 @@ uint key_exp_enc_verbose(uchar key[][4], uint Nk, uint sched[NUM_ROUNDS + 1][4])
 				key[3][k]);
 			sched[i][k] = result;
 		}
+		printf("Round %d Key:\n", i);
+		print_matrix(sched[i], 4);
+		printf("\n");
 	}
 	for(i = 1; i < NUM_ROUNDS + 1; ++i){
 		for(k = 0; k < 4; ++k){
@@ -489,6 +592,10 @@ uint key_exp_enc_verbose(uchar key[][4], uint Nk, uint sched[NUM_ROUNDS + 1][4])
 			uint result = sched[i-1][k] ^ temp;
 			sched[i][k] = result;
 		}
+		
+		printf("Round %d Key:\n", i);
+		print_matrix(sched[i], 4);
+		printf("\n");
 	}
 }
 
@@ -644,7 +751,7 @@ uint aes_128_enc_verbose(uchar plaintext[16], uchar key[16], uchar cyphertext[16
 	oneD_to_twoD(plaintext, state, 4);
 	oneD_to_twoD(key, r, 4);
 
-	
+	printf("\nENCRYPTION");	
 	printf("\nPlaintext:");
 	print_matrix(state, 4);
 	printf("\nKey:");
@@ -658,30 +765,66 @@ uint aes_128_enc_verbose(uchar plaintext[16], uchar key[16], uchar cyphertext[16
 	uint round = 0;
 
 	uchar s_key[4][4];
-		to_matrix(schedule[0][0], 
+	to_matrix(schedule[0][0], 
 		schedule[0][1],
 		schedule[0][2],
 		schedule[0][3], s_key, 4);
 
 	add_round_key(state, s_key, 4);
 
+	printf("Adding Round %d Key:\n", round);
+	print_matrix(state, 4);
+	printf("\n");
+
 	for(round = 1; round <= (NUM_ROUNDS - 1); ++round){
 		sub_bytes(state, 4);	
+
+		printf("Substitute Bytes Round %d:\n", round);
+		print_matrix(state, 4);
+		printf("\n");
+
+
 		shift_rows(state, 4);
+		
+		printf("Shift Rows Round %d:\n", round);
+		print_matrix(state, 4);
+		printf("\n");
+
+
 		mix_columns(state, 4);	
 
-		uchar r_key[4][4];
+		printf("Mix Columns Round %d:\n", round);
+		print_matrix(state, 4);
+		printf("\n");
+
+
+		uchar r_key[4][4];		
 		to_matrix(schedule[round][0],
 			 schedule[round][1],
 			 schedule[round][2],
 			 schedule[round][3],
 			 r_key, 4);
 		add_round_key(state, r_key, 4);
+		
+		printf("Adding Round %d Key:\n", round);
+		print_matrix(state, 4);
+		printf("\n");
 	}
 		
 	sub_bytes(state, 4);
+	
+	printf("Substitute Bytes Round %d:\n", round);
+	print_matrix(state, 4);
+	printf("\n");
+	
+
 	shift_rows(state, 4);
 	
+	printf("Shift Rows Round %d:\n", round);
+	print_matrix(state, 4);
+	printf("\n");
+	
+
 	uchar r_key[4][4];
 	to_matrix(schedule[round][0],
   	         schedule[round][1],
@@ -689,6 +832,10 @@ uint aes_128_enc_verbose(uchar plaintext[16], uchar key[16], uchar cyphertext[16
 		 schedule[round][3],
 		 r_key, 4);
 	add_round_key(state, r_key, 4); 
+	
+	printf("Adding Round %d Key:\n", round);
+	print_matrix(state, 4);
+	printf("\n");
 
 	int n;
 	int m;
@@ -708,6 +855,74 @@ uint aes_128_dec(uchar cyphertext[16], uchar key[16], uchar plaintext[16]){
 	oneD_to_twoD(key, r, 4);
 
 	uint schedule[(NUM_ROUNDS + 1)][4];
+	key_exp_dec(r, 4, schedule);	
+
+	uint round = 0;
+
+	uchar s_key[4][4];
+		to_matrix(schedule[0][0], 
+		schedule[0][1],
+		schedule[0][2],
+		schedule[0][3], s_key, 4);
+	add_round_key(state, s_key, 4);
+	for(round = 1; round <= (NUM_ROUNDS - 1); ++round){
+		
+		inv_shift_rows(state, 4);
+		inv_sub_bytes(state, 4);	
+		
+
+		uchar r_key[4][4];
+		to_matrix(schedule[round][0],
+			 schedule[round][1],
+			 schedule[round][2],
+			 schedule[round][3],
+				 r_key, 4);
+		add_round_key(state, r_key, 4);
+		inv_mix_columns(state, 4);
+
+	}	
+
+	
+	inv_shift_rows(state, 4);
+	inv_sub_bytes(state, 4);
+
+	uchar r_key[4][4];
+	to_matrix(schedule[round][0],
+  	         schedule[round][1],
+		 schedule[round][2],
+		 schedule[round][3],
+		 r_key, 4);
+	add_round_key(state, r_key, 4); 
+
+	int n;
+	int m;
+	for(n = 0; n < 4; ++n){
+		for(m = 0; m < 4; ++m){
+			plaintext[(n * 4) + m] = state[m][n];
+		}
+
+	}
+
+}
+
+uint aes_128_dec_verbose(uchar cyphertext[16], uchar key[16], uchar plaintext[16]){
+
+	uchar state[4][4];
+	uchar r[4][4];
+
+	oneD_to_twoD(cyphertext, state, 4);
+	oneD_to_twoD(key, r, 4);
+
+	printf("Cyphertext:\n");
+	print_matrix(state, 4);
+	printf("Key\n");
+	print_matrix(r, 4);
+
+	printf("\n\n\n");
+
+	uint schedule[(NUM_ROUNDS + 1)][4];
+
+	//TODO make verbose
 	key_exp_dec(r, 4, schedule);	
 
 	uint round = 0;

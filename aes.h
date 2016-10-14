@@ -3,10 +3,16 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <fcntl.h>
 
 #define uchar unsigned char // 8-bit byte
 #define uint unsigned long // 32-bit word
 #define NUM_ROUNDS 10
+#define ENCRYPT 1
+#define DECRYPT 2
+#define VERBOSE_ENCRYPT 5 // 101
+#define VERBOSE_DECRYPT 6 // 110
+#define BUFFER_SIZE 16
 
 uint d(uchar in[], uchar out[][4], uint Nb);
 
@@ -48,8 +54,8 @@ uint aes_128_enc(uchar plaintext[16], uchar key[16], uchar cyphertext[16]);
 
 uint aes_128_enc_verbose(uchar plaintext[16], uchar key[16], uchar cyphertext[16]);
 
-
-
 uint aes_128_dec(uchar cyphertext[16], uchar key[16], uchar plaintext[16]);
+
+uint aes_128_dec_verbose(uchar cyphertext[BUFFER_SIZE], uchar key[BUFFER_SIZE], uchar plaintext[BUFFER_SIZE]);
 
 #endif
